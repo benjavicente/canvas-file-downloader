@@ -4,16 +4,25 @@ Simple file downloader for Canvas of Instructure.
 
 Features:
 
-- Downloads only the courses marked as favorites
-- If a file already exists, it's omitted (marked with `*`)
+- Downloads all courses or only the ones marked as favorites
+- If a file already exists, it's omitted
 
 Usage:
 
-```bash
-python canvas.py YOUR-TOKEN
+First, download the requirements with:
+
+```shell
+python -m pip install -r requirements.txt
 ```
 
-Where `YOUR-TOKEN` is the token access of Canvas.
+then, run the module with:
+
+```shell
+python canvas.py YOUR-TOKEN CANVAS-URL
+```
+
+Where `YOUR-TOKEN` is the token access of Canvas, and
+`CANVAS-URL` the Canvas URL.
 You can get the access token from [here][get_token].
 
 Related projects:
