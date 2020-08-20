@@ -3,6 +3,7 @@
 import argparse
 import dataclasses
 import os
+import re
 
 import colorama
 import requests
@@ -23,6 +24,38 @@ def print_c(string, type_, padding, **kwarg):
         print(colorama.Fore.YELLOW + padded, **kwarg)
     elif type_ == "item":
         print(padded, **kwarg)
+
+
+def get_external_download_url(url: str) -> bool:
+    """
+    This should return an URL where the file can be downloaded.
+    Supported sites:
+    - docs.google.com
+    """
+
+    # Try Google Drive
+    exp = re.compile(r"https:\/\/drive\.google\.com\/file\/d\/(?P<id>[^/]*)/")
+    result = exp.search(url)
+    if result:
+        document_id = result.group("id")
+        return f"https://docs.google.com/uc?export=download&id={document_id}"
+
+    return None
+
+
+def get_file_name_by_header(header) -> str:
+    """Tries to get the file name from the header"""
+    if not header:
+        return ""
+    exp = re.compile(r"filename=\"(?P<file_name>[^\"]*)\"")
+    exp_utf8 = re.compile(r"filename\*=UTF-8''(?P<file_name>[^\"]*)")
+    result = exp.search(header)
+    result_utf8 = exp_utf8.search(header)
+    if result_utf8:
+        return requests.utils.unquote(result_utf8.group("file_name"))
+    if result:
+        return requests.utils.unquote(result.group("file_name"))
+    return ""
 
 
 @dataclasses.dataclass
@@ -115,7 +148,9 @@ class CanvasApi:
             print_c("[F] " + folder["full_name"], "item", 1)
 
             for file_obj in files_list:
-                self._dowload_file(file_obj, folder_path)
+                self._dowload_file(
+                    file_obj["url"], folder_path, file_obj["display_name"]
+                )
 
         return True
 
@@ -138,29 +173,59 @@ class CanvasApi:
             for item in module_items:
                 if item["type"] == "File":
                     file_obj = self.get_file_from_id(course_id, item["content_id"])
-                    self._dowload_file(file_obj, folder_path)
-
+                    self._dowload_file(
+                        file_obj["url"], folder_path, file_obj["display_name"]
+                    )
+                elif item["type"] == "ExternalUrl":
+                    external_url = get_external_download_url(item["external_url"])
+                    if external_url:
+                        file_url = external_url
+                        self._dowload_file(file_url, folder_path)
         return True
 
-    def _dowload_file(self, file_obj, folder_path):
+    def _dowload_file(self, file_url, folder_path, name=""):
         """Downloads a file object"""
         dir_path = os.path.join(self.out_dir, *folder_path)
-        file_path = os.path.join(self.out_dir, *folder_path, file_obj["display_name"])
 
-        if os.path.exists(file_path):
-            print_c(file_obj["display_name"], type_="existing", padding=2)
-            return
-
+        # See if the directory is valid
         try:
             os.makedirs(os.path.join(dir_path), exist_ok=True)
         except NotADirectoryError:
             print_c("error: invalid path", type_="error", padding=2)
 
-        download_response = requests.get(file_obj["url"], stream=True)
+        if name:  # if a name in given
+            # Check the file name
+            file_name = name
+            # Checks if the file exists
+            file_path = os.path.join(self.out_dir, *folder_path, file_name)
+            if os.path.exists(file_path):
+                print_c(file_name, type_="existing", padding=2)
+                return
+            # Starts the request if it doesn't
+            download_response = requests.get(file_url, stream=True)
+        else:
+            # Starts the request
+            download_response = requests.get(file_url, stream=True)
+            content_header = download_response.headers.get("Content-Disposition")
+            # Check the file name
+            if not content_header:
+                return
+            file_name = get_file_name_by_header(content_header)
+            if not file_name:
+                return
+            # Checks if the file exists
+            file_path = os.path.join(self.out_dir, *folder_path, file_name)
+            if os.path.exists(file_path):
+                print_c(file_name, type_="existing", padding=2)
+                return
+
         content_len = download_response.headers.get("content-length", None)
 
+        # Download file
+        print_c(" | ".join((f"{0:3.0f}%", file_name,)), "new", 2, end="\r")
         with open(file_path, "wb") as file:
             if not content_len:
+                print_c(" | ".join(("???%", file_name,)), "new", 2)
                 file.write(download_response.content)
                 return
 
@@ -170,17 +235,8 @@ class CanvasApi:
             for data in download_response.iter_content(chunk_size=4096):
                 file.write(data)
                 progress += len(data)
-                print_c(
-                    " | ".join(
-                        (
-                            f"{(progress / total_len) * 100:3.0f}%",
-                            file_obj["display_name"],
-                        )
-                    ),
-                    type_="new",
-                    padding=2,
-                    end="\r",
-                )
+                perc = (progress / total_len) * 100
+                print_c(" | ".join((f"{perc:3.0f}%", file_name,)), "new", 2, end="\r")
             print(end="\n")
 
 
@@ -198,6 +254,7 @@ if __name__ == "__main__":
         "--all", action="store_true", help="Get all courses instead of only favorites"
     )
     parser.add_argument("out_dir", metavar="OUT_DIR", help="Out directory")
+
     args = parser.parse_args()
 
     API = CanvasApi(args.domain, args.token, args.out_dir)
