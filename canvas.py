@@ -13,17 +13,20 @@ colorama.init(autoreset=True)
 
 def print_c(string, type_, padding, **kwarg):
     """Prints with color"""
-    padded = " " * padding + string
     if type_ == "error":
+        padded = " " * (padding * 2) + "! " + string
         print(colorama.Fore.RED + padded, **kwarg)
     elif type_ == "new":
+        padded = " " * (padding * 2) + "+ " + string
         print(colorama.Fore.GREEN + padded, **kwarg)
     elif type_ == "group":
+        padded = " " * (padding * 2) + string
         print(colorama.Fore.BLACK + colorama.Back.WHITE + padded, **kwarg)
     elif type_ == "existing":
+        padded = " " * (padding * 2) + "* " + string
         print(colorama.Fore.YELLOW + padded, **kwarg)
     elif type_ == "item":
-        print(padded, **kwarg)
+        print(" " * (padding * 2) + string, **kwarg)
 
 
 def get_external_download_url(url: str) -> bool:
@@ -132,7 +135,7 @@ class CanvasApi:
                 methods[1](course_code, course_id)
         return True
 
-    def _download_from_foldes(self, course_id, course_name):
+    def _download_from_foldes(self, course_id, course_name) -> bool:
         folders_list = self.get_folders(course_id)
         for folder in folders_list:
 
@@ -154,7 +157,7 @@ class CanvasApi:
 
         return True
 
-    def _download_from_modules(self, course_id, course_name):
+    def _download_from_modules(self, course_id, course_name) -> bool:
         modules_list = self.get_modules(course_id)
 
         for module in modules_list:
@@ -181,10 +184,14 @@ class CanvasApi:
                     if external_url:
                         file_url = external_url
                         self._dowload_file(file_url, folder_path)
+
         return True
 
     def _dowload_file(self, file_url, folder_path, name=""):
-        """Downloads a file object"""
+        """Downloads a file from its URL.
+        If a file name is given, the download request won't happen
+        if a file with the same name exists.
+        """
         dir_path = os.path.join(self.out_dir, *folder_path)
 
         # See if the directory is valid
