@@ -20,15 +20,20 @@ python -m pip install -r requirements.txt
 then, run the module with:
 
 ```shell
-python canvas.py YOUR-TOKEN CANVAS-DOMAIN FROM OUT-DIR
+python canvas.py YOUR-TOKEN CANVAS-DOMAIN
 ```
 
 Where:
 
-- `YOUR-TOKEN` is the token access of Canvas, generated [here][get_token]
-- `CANVAS-DOMAIN` the Canvas domain where files will be downloaded
-- `FROM` where to download the files, can be modules, folders or both
-- `OUT-DIR` is the name of the output directory
+- `YOUR-TOKEN` is the token access of Canvas, generated [here][get_token].
+- `CANVAS-DOMAIN` the Canvas domain where files will be downloaded.
+
+Optional parameters:
+
+- `-f FROM`: where to download the files, can be modules,
+  folders or both (default: `both`).
+- `-o DIR`: name of the output directory (default: `CanvasFiles`).
+- `--all`: include all courses instead of only favorites.
 
 Related projects:
 

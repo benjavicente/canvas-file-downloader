@@ -37,7 +37,7 @@ def get_external_download_url(url: str) -> bool:
     """
 
     # Try Google Drive
-    exp = re.compile(r"https:\/\/drive\.google\.com\/file\/d\/(?P<id>[^/]*)/")
+    exp = re.compile(r"https:\/\/drive\.google\.com\/file\/d\/(?P<id>[^\/]*?)\/")
     result = exp.search(url)
     if result:
         document_id = result.group("id")
@@ -180,10 +180,9 @@ class CanvasApi:
                         file_obj["url"], folder_path, file_obj["display_name"]
                     )
                 elif item["type"] == "ExternalUrl":
-                    external_url = get_external_download_url(item["external_url"])
-                    if external_url:
-                        file_url = external_url
-                        self._dowload_file(file_url, folder_path)
+                    download_url = get_external_download_url(item["external_url"])
+                    if download_url:
+                        self._dowload_file(download_url, folder_path)
 
         return True
 
@@ -199,6 +198,7 @@ class CanvasApi:
             os.makedirs(os.path.join(dir_path), exist_ok=True)
         except NotADirectoryError:
             print_c("error: invalid path", type_="error", padding=2)
+            return
 
         if name:  # if a name in given
             # Check the file name
@@ -251,18 +251,28 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Download files from Canvas")
     parser.add_argument("token", metavar="TOKEN", help="Canvas access token")
     parser.add_argument("domain", metavar="DOMAIN", help="Canvas domain")
+
     parser.add_argument(
-        "from_where",
+        "-f",
         metavar="FROM",
         help="Download from modules, folders or both (Default: both)",
         choices=("modules", "folders", "both"),
+        default="both"
     )
+
+    parser.add_argument(
+        "-o",
+        type=str,
+        metavar="OUT",
+        help="Out directory (Default: CanvasFiles)",
+        default="CanvasFiles"
+    )
+
     parser.add_argument(
         "--all", action="store_true", help="Get all courses instead of only favorites"
     )
-    parser.add_argument("out_dir", metavar="OUT_DIR", help="Out directory")
 
     args = parser.parse_args()
 
-    API = CanvasApi(args.domain, args.token, args.out_dir)
-    API.download_files(args.all, args.from_where)
+    API = CanvasApi(args.domain, args.token, args.o)
+    API.download_files(args.all, args.f)
