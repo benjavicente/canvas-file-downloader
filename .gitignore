@@ -1,17 +1,4 @@
-# Python
-__pycache__/
-.py[cod]
-
-# Workspace
-.env
-.vscode
-*.cmd
-
-# OS
-.DS_STORE
-Thumbs.db
-[Dd]esktop.ini
-
-# Output
-out/
-canvas/
+*
+!canvas.py
+!readme.md
+!requirements.txt
