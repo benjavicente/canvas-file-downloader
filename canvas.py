@@ -69,7 +69,6 @@ class CanvasApi:
 
     domain: str
     token: str
-    out_dir: str
 
     def __url(self, query):
         return "/".join(("https:/", self.domain, "api/v1", query))
@@ -106,7 +105,12 @@ class CanvasApi:
         """Gets a file of a specific course using it's id"""
         return self.__get(f"courses/{course_id}/files/{file_id}")
 
-    # Special methods
+
+@dataclasses.dataclass
+class CanvasDowloader(CanvasApi):
+    """Canvas file downloader"""
+
+    out_dir: str
 
     def download_files(self, all_courses=False, use="both"):
         """Downloads files from Canvas"""
@@ -275,5 +279,5 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    API = CanvasApi(args.domain, args.token, args.o)
+    API = CanvasDowloader(args.domain, args.token, args.o)
     API.download_files(args.all, args.f)
