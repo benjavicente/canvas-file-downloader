@@ -170,7 +170,8 @@ class CanvasApi:
             if "errors" in module_items:
                 return False
 
-            folder_path = [course_name, module["name"].strip()]
+            # TODO: A module can have a name that is not a valid path
+            folder_path = [course_name, module["name"].strip().replace("/", "&")]
             print_c("[M] " + module["name"], "item", 1)
 
             for item in module_items:
