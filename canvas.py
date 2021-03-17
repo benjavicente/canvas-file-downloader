@@ -29,7 +29,7 @@ def print_c(string, type_, padding, **kwarg):
         print(" " * (padding * 2) + string, **kwarg)
 
 
-def get_external_download_url(url: str) -> bool:
+def get_external_download_url(url: str) -> str:
     """
     This should return an URL where the file can be downloaded.
     Supported sites:
@@ -43,7 +43,7 @@ def get_external_download_url(url: str) -> bool:
         document_id = result.group("id")
         return f"https://docs.google.com/uc?export=download&id={document_id}"
 
-    return None
+    return ""
 
 
 def get_file_name_by_header(header) -> str:
@@ -73,9 +73,11 @@ class CanvasApi:
     def __url(self, query):
         return "/".join(("https:/", self.domain, "api/v1", query))
 
-    def __get(self, query: str):
+    def __get(self, query: str, **kwarg):
         response = requests.get(
-            url=self.__url(query), headers={"Authorization": f"Bearer {self.token}"},
+            url=self.__url(query),
+            headers={"Authorization": f"Bearer {self.token}"},
+            **kwarg,
         )
         return response.json()
 
@@ -93,8 +95,14 @@ class CanvasApi:
         """Gets the modules of a course"""
         return self.__get(f"courses/{course_id}/modules")
 
-    def get_files_from_folder(self, folder_id: int) -> list:
+    def get_files_from_folder(self, folder_id: int, recent=True) -> list:
         """Gets the files of a folder"""
+        # TODO: the api by default gets only the first 10 uploated files
+        if recent:
+            self.__get(
+                f"folders/{folder_id}/files",
+                params={"sort": "updated_at", "order": "desc"},
+            )
         return self.__get(f"folders/{folder_id}/files")
 
     def get_modules_items(self, course_id: int, module_id: int) -> list:
@@ -105,6 +113,10 @@ class CanvasApi:
         """Gets a file of a specific course using it's id"""
         return self.__get(f"courses/{course_id}/files/{file_id}")
 
+    def get_folder_from_id(self, course_id: int, folder_id: int) -> dict:
+        """Gets a folder from a specific course using it's id"""
+        return self.__get(f"courses/{course_id}/folders/{folder_id}")
+
 
 @dataclasses.dataclass
 class CanvasDowloader(CanvasApi):
@@ -112,7 +124,7 @@ class CanvasDowloader(CanvasApi):
 
     out_dir: str
 
-    def download_files(self, all_courses=False, use="both"):
+    def download_files(self, all_courses=False, courses_ids=None, use="both"):
         """Downloads files from Canvas"""
         courses = self.get_courses(not all_courses)
 
@@ -155,6 +167,9 @@ class CanvasDowloader(CanvasApi):
             print_c("[F] " + folder["full_name"], "item", 1)
 
             for file_obj in files_list:
+                if not file_obj["url"]:
+                    continue
+
                 self._dowload_file(
                     file_obj["url"], folder_path, file_obj["display_name"]
                 )
@@ -175,19 +190,24 @@ class CanvasDowloader(CanvasApi):
                 return False
 
             # TODO: A module can have a name that is not a valid path
-            folder_path = [course_name, module["name"].strip().replace("/", "&")]
+            module_path = [course_name, module["name"].strip().replace("/", "&")]
             print_c("[M] " + module["name"], "item", 1)
 
             for item in module_items:
                 if item["type"] == "File":
                     file_obj = self.get_file_from_id(course_id, item["content_id"])
+                    folder_obj = self.get_folder_from_id(course_id, file_obj["folder_id"])
+                    if "full_name" in folder_obj:
+                        current_folder_path = [course_name] + folder_obj["full_name"].split("/")[1:]
+                    else:
+                        current_folder_path = module_path
                     self._dowload_file(
-                        file_obj["url"], folder_path, file_obj["display_name"]
+                        file_obj["url"], current_folder_path, file_obj["display_name"]
                     )
                 elif item["type"] == "ExternalUrl":
                     download_url = get_external_download_url(item["external_url"])
                     if download_url:
-                        self._dowload_file(download_url, folder_path)
+                        self._dowload_file(download_url, module_path)
 
         return True
 
