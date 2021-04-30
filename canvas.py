@@ -4,12 +4,18 @@ import argparse
 import dataclasses
 import os
 import re
+import unicodedata
 
 import colorama
 import requests
 
 colorama.init(autoreset=True)
 
+def slugify(text):
+    # Taken from https://github.com/django/django/blob/master/django/utils/text.py
+    value = unicodedata.normalize('NFKC', text)
+    value = re.sub(r'[^\w\s\.-]', '', value.lower())
+    return re.sub(r'[-\s]+', '-', value).strip('-_')
 
 def print_c(string, type_, padding, **kwarg):
     """Prints with color"""
@@ -76,7 +82,10 @@ class CanvasApi:
     def __get(self, query: str, **kwarg):
         response = requests.get(
             url=self.__url(query),
-            headers={"Authorization": f"Bearer {self.token}"},
+            headers={
+                "Authorization": f"Bearer {self.token}",
+                "per_page": "50"
+               },
             **kwarg,
         )
         return response.json()
@@ -216,12 +225,12 @@ class CanvasDowloader(CanvasApi):
         If a file name is given, the download request won't happen
         if a file with the same name exists.
         """
-        dir_path = os.path.join(self.out_dir, *folder_path)
-
+        dir_path = os.path.join(self.out_dir, *map(slugify, folder_path))
+        
         # See if the directory is valid
         try:
             os.makedirs(os.path.join(dir_path), exist_ok=True)
-        except NotADirectoryError:
+        except (NotADirectoryError, OSError):
             print_c("error: invalid path", type_="error", padding=2)
             return
 
@@ -229,7 +238,7 @@ class CanvasDowloader(CanvasApi):
             # Check the file name
             file_name = name
             # Checks if the file exists
-            file_path = os.path.join(self.out_dir, *folder_path, file_name)
+            file_path = os.path.join(self.out_dir, *map(slugify, folder_path), slugify(file_name))
             if os.path.exists(file_path):
                 print_c(file_name, type_="existing", padding=2)
                 return
@@ -242,11 +251,11 @@ class CanvasDowloader(CanvasApi):
             # Check the file name
             if not content_header:
                 return
-            file_name = get_file_name_by_header(content_header)
+            file_name = slugify(get_file_name_by_header(content_header))
             if not file_name:
                 return
             # Checks if the file exists
-            file_path = os.path.join(self.out_dir, *folder_path, file_name)
+            file_path = os.path.join(self.out_dir, *map(slugify, folder_path), file_name)
             if os.path.exists(file_path):
                 print_c(file_name, type_="existing", padding=2)
                 return
