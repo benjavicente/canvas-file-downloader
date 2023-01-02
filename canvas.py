@@ -89,7 +89,9 @@ class CanvasApi:
 
     def get_folders(self, course_id: int) -> list:
         """Gets the folders of a course"""
-        return self.__get(f"courses/{course_id}/folders")
+        # 'per_page' param below is set to 100 folders per course
+        return self.__get(f"courses/{course_id}/folders",
+                          params={"per_page": 100})
 
     def get_modules(self, course_id: int) -> list:
         """Gets the modules of a course"""
@@ -97,17 +99,20 @@ class CanvasApi:
 
     def get_files_from_folder(self, folder_id: int, recent=True) -> list:
         """Gets the files of a folder"""
-        # TODO: the api by default gets only the first 10 uploated files
+        # 'per_page' param below is set to 100 files per folder
         if recent:
             self.__get(
                 f"folders/{folder_id}/files",
-                params={"sort": "updated_at", "order": "desc"},
+                params={"sort": "updated_at", "order": "desc", 
+                        "per_page": 100},
             )
         return self.__get(f"folders/{folder_id}/files")
 
     def get_modules_items(self, course_id: int, module_id: int) -> list:
         """Gets the module items of a course"""
-        return self.__get(f"courses/{course_id}/modules/{module_id}/items")
+        # 'per_page' param below is set to 500 files per module
+        return self.__get(f"courses/{course_id}/modules/{module_id}/items",
+                          params={"per_page": 500})
 
     def get_file_from_id(self, course_id: int, file_id: int) -> dict:
         """Gets a file of a specific course using it's id"""
@@ -119,7 +124,7 @@ class CanvasApi:
 
 
 @dataclasses.dataclass
-class CanvasDowloader(CanvasApi):
+class CanvasDownloader(CanvasApi):
     """Canvas file downloader"""
 
     out_dir: str
@@ -136,7 +141,7 @@ class CanvasDowloader(CanvasApi):
             print_c(course["course_code"], type_="group", padding=0)
             course_code, course_id = course["id"], course["course_code"]
 
-            methods = [self._download_from_modules, self._download_from_foldes]
+            methods = [self._download_from_modules, self._download_from_folders]
 
             if use == "both":
                 for method in methods:
@@ -146,12 +151,12 @@ class CanvasDowloader(CanvasApi):
             if use == "folders":
                 methods.reverse()
 
-            avaible = methods[0](course_code, course_id)
-            if not avaible:
+            available = methods[0](course_code, course_id)
+            if not available:
                 methods[1](course_code, course_id)
         return True
 
-    def _download_from_foldes(self, course_id, course_name) -> bool:
+    def _download_from_folders(self, course_id, course_name) -> bool:
         folders_list = self.get_folders(course_id)
         for folder in folders_list:
 
@@ -170,7 +175,7 @@ class CanvasDowloader(CanvasApi):
                 if not file_obj["url"]:
                     continue
 
-                self._dowload_file(
+                self._download_file(
                     file_obj["url"], folder_path, file_obj["display_name"]
                 )
 
@@ -201,17 +206,17 @@ class CanvasDowloader(CanvasApi):
                         current_folder_path = [course_name] + folder_obj["full_name"].split("/")[1:]
                     else:
                         current_folder_path = module_path
-                    self._dowload_file(
+                    self._download_file(
                         file_obj["url"], current_folder_path, file_obj["display_name"]
                     )
                 elif item["type"] == "ExternalUrl":
                     download_url = get_external_download_url(item["external_url"])
                     if download_url:
-                        self._dowload_file(download_url, module_path)
+                        self._download_file(download_url, module_path)
 
         return True
 
-    def _dowload_file(self, file_url, folder_path, name=""):
+    def _download_file(self, file_url, folder_path, name=""):
         """Downloads a file from its URL.
         If a file name is given, the download request won't happen
         if a file with the same name exists.
@@ -234,6 +239,8 @@ class CanvasDowloader(CanvasApi):
                 print_c(file_name, type_="existing", padding=2)
                 return
             # Starts the request if it doesn't
+            if file_url == '': # Skip currently locked files
+                return
             download_response = requests.get(file_url, stream=True)
         else:
             # Starts the request
@@ -299,5 +306,5 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    API = CanvasDowloader(args.domain, args.token, args.o)
+    API = CanvasDownloader(args.domain, args.token, args.o)
     API.download_files(args.all, args.f)
