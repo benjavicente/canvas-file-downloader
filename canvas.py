@@ -89,7 +89,9 @@ class CanvasApi:
 
     def get_folders(self, course_id: int) -> list:
         """Gets the folders of a course"""
-        return self.__get(f"courses/{course_id}/folders")
+        # 'per_page' param below is set to 100 folders per course
+        return self.__get(f"courses/{course_id}/folders",
+                          params={"per_page": 100})
 
     def get_modules(self, course_id: int) -> list:
         """Gets the modules of a course"""
@@ -97,17 +99,20 @@ class CanvasApi:
 
     def get_files_from_folder(self, folder_id: int, recent=True) -> list:
         """Gets the files of a folder"""
-        # TODO: the api by default gets only the first 10 uploated files
+        # 'per_page' param below is set to 100 files per folder
         if recent:
             self.__get(
                 f"folders/{folder_id}/files",
-                params={"sort": "updated_at", "order": "desc"},
+                params={"sort": "updated_at", "order": "desc", 
+                        "per_page": 100},
             )
         return self.__get(f"folders/{folder_id}/files")
 
     def get_modules_items(self, course_id: int, module_id: int) -> list:
         """Gets the module items of a course"""
-        return self.__get(f"courses/{course_id}/modules/{module_id}/items")
+        # 'per_page' param below is set to 500 files per module
+        return self.__get(f"courses/{course_id}/modules/{module_id}/items",
+                          params={"per_page": 500})
 
     def get_file_from_id(self, course_id: int, file_id: int) -> dict:
         """Gets a file of a specific course using it's id"""
@@ -136,7 +141,7 @@ class CanvasDownloader(CanvasApi):
             print_c(course["course_code"], type_="group", padding=0)
             course_code, course_id = course["id"], course["course_code"]
 
-            methods = [self._download_from_modules, self._download_from_foldes]
+            methods = [self._download_from_modules, self._download_from_folders]
 
             if use == "both":
                 for method in methods:
@@ -146,12 +151,12 @@ class CanvasDownloader(CanvasApi):
             if use == "folders":
                 methods.reverse()
 
-            avaible = methods[0](course_code, course_id)
-            if not avaible:
+            available = methods[0](course_code, course_id)
+            if not available:
                 methods[1](course_code, course_id)
         return True
 
-    def _download_from_foldes(self, course_id, course_name) -> bool:
+    def _download_from_folders(self, course_id, course_name) -> bool:
         folders_list = self.get_folders(course_id)
         for folder in folders_list:
 
