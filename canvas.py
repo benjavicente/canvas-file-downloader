@@ -119,7 +119,7 @@ class CanvasApi:
 
 
 @dataclasses.dataclass
-class CanvasDowloader(CanvasApi):
+class CanvasDownloader(CanvasApi):
     """Canvas file downloader"""
 
     out_dir: str
@@ -170,7 +170,7 @@ class CanvasDowloader(CanvasApi):
                 if not file_obj["url"]:
                     continue
 
-                self._dowload_file(
+                self._download_file(
                     file_obj["url"], folder_path, file_obj["display_name"]
                 )
 
@@ -201,17 +201,17 @@ class CanvasDowloader(CanvasApi):
                         current_folder_path = [course_name] + folder_obj["full_name"].split("/")[1:]
                     else:
                         current_folder_path = module_path
-                    self._dowload_file(
+                    self._download_file(
                         file_obj["url"], current_folder_path, file_obj["display_name"]
                     )
                 elif item["type"] == "ExternalUrl":
                     download_url = get_external_download_url(item["external_url"])
                     if download_url:
-                        self._dowload_file(download_url, module_path)
+                        self._download_file(download_url, module_path)
 
         return True
 
-    def _dowload_file(self, file_url, folder_path, name=""):
+    def _download_file(self, file_url, folder_path, name=""):
         """Downloads a file from its URL.
         If a file name is given, the download request won't happen
         if a file with the same name exists.
@@ -234,6 +234,8 @@ class CanvasDowloader(CanvasApi):
                 print_c(file_name, type_="existing", padding=2)
                 return
             # Starts the request if it doesn't
+            if file_url == '': # Skip currently locked files
+                return
             download_response = requests.get(file_url, stream=True)
         else:
             # Starts the request
@@ -299,5 +301,5 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    API = CanvasDowloader(args.domain, args.token, args.o)
+    API = CanvasDownloader(args.domain, args.token, args.o)
     API.download_files(args.all, args.f)
